@@ -34,9 +34,9 @@ class WebGLContext {
 		);
 		this.renderer.setPixelRatio(this.pixelRatio);
 
-		this.renderer.shadowMap.enabled = false;
-		// this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-		// this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+		this.renderer.shadowMap.enabled = true;
+		this.renderer.shadowMap.type = THREE.PCFShadowMap;
+		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 	}
 
 	getFullScreenDimensions() {
@@ -61,7 +61,7 @@ class WebGLContext {
 		this.canvas.style.left = 0;
 		this.canvas.style.top = 0;
 		this.canvas.style.zIndex = 35;
-		this.canvas.style.pointerEvents = "none";
+		this.canvas.style.pointerEvents = "auto";
 
 		document.body.appendChild(this.canvas);
 

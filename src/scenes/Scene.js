@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import WebGLContext from "../core/WebGLContext";
-import ImportGltf from "../utils/ImportGltf";
 import { CameraRig } from "../utils/CameraRig";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import ParticleSystem from "../particles/ParticleSystem";
 
 export default class Scene {
 	constructor() {
@@ -13,17 +12,21 @@ export default class Scene {
 		this.height = 0;
 		this.aspectRatio = 0;
 		this.scene = null;
-		this.envMap = null;
+		this.particleSystem = null;
+		this.mouse3d = new THREE.Vector3();
+		this.raycaster = new THREE.Raycaster();
+		this.mouseNDC = new THREE.Vector2();
+		this.intersectPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 		this.#init();
 	}
 
-	async #init() {
+	#init() {
 		this.#setContext();
 		this.#setupScene();
 		this.#setupCamera();
-		this.#setupCameraRig();
-		this.#addLights();
-		await this.#addObjects();
+		this.#setupLight();
+		this.#setupParticles();
+		this.#bindMouseEvents();
 	}
 
 	#setContext() {
@@ -32,45 +35,44 @@ export default class Scene {
 
 	#setupScene() {
 		this.scene = new THREE.Scene();
-		const environment = new RoomEnvironment();
-		const pmremGenerator = new THREE.PMREMGenerator(this.context.renderer);
-		this.envMap = pmremGenerator.fromScene(environment).texture;
-		this.scene.environment = this.envMap;
-		this.scene.environmentIntensity = 1.0;
-		// this.scene.background = new THREE.Color(0x000000);
+		this.scene.background = new THREE.Color(0x03051a);
 	}
 
 	#setupCamera() {
 		this.#calculateAspectRatio();
-		this.camera = new THREE.PerspectiveCamera(45, this.aspectRatio, 0.001, 100);
-		this.camera.position.z = 8;
-		this.camera.position.y = -0.5;
+		this.camera = new THREE.PerspectiveCamera(50, this.aspectRatio, 0.1, 1000);
+		this.camera.position.z = 300;
 	}
 
-	#setupCameraRig() {
-		this.cameraRig = new CameraRig(this.camera, {
-			target: new THREE.Vector3(0, 0, 0),
-			xLimit: [-0.25, 0.25],
-			yLimit: [-0.75, -0.25],
-			damping: 1.65,
+	#setupLight() {
+		const pointLight = new THREE.PointLight(0xffffff, 1, 1400);
+		pointLight.position.set(0, 10, 700);
+		pointLight.castShadow = true;
+		pointLight.shadowCameraNear = 10;
+		pointLight.shadowCameraFar = 1400;
+		pointLight.shadowBias = 0.1;
+		pointLight.shadowMapWidth = 2048;
+		pointLight.shadowMapHeight = 2048;
+
+		this.scene.add(pointLight);
+		this.light = pointLight;
+	}
+
+	#setupParticles() {
+		this.particleSystem = new ParticleSystem(this.context.renderer);
+		this.scene.add(this.particleSystem.mesh);
+	}
+
+	#bindMouseEvents() {
+		window.addEventListener("mousemove", (event) => {
+			this.mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1;
+			this.mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
 		});
 	}
 
-	#addLights() {}
-
-	async #addObjects() {
-		new ImportGltf(`${import.meta.env.BASE_URL}__.glb`, {
-			onLoad: (model) => {
-				this.mesh = model;
-
-				this.mesh.traverse((children) => {
-					if (!children.isMesh) return;
-					children.material = material;
-				});
-
-				this.scene.add(model);
-			},
-		});
+	#updateMouse3d() {
+		this.raycaster.setFromCamera(this.mouseNDC, this.camera);
+		this.raycaster.ray.intersectPlane(this.intersectPlane, this.mouse3d);
 	}
 
 	#calculateAspectRatio() {
@@ -81,7 +83,15 @@ export default class Scene {
 	}
 
 	animate(delta, elapsed) {
-		this.cameraRig && this.cameraRig.update(delta);
+		this.#updateMouse3d();
+		this.particleSystem &&
+			this.particleSystem.update(
+				delta,
+				elapsed,
+				this.mouse3d,
+				this.camera,
+				this.light.position,
+			);
 	}
 
 	onResize(width, height) {
