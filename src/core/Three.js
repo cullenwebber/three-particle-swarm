@@ -9,6 +9,9 @@ class Three {
 		this.context = null;
 		this.clock = new THREE.Clock();
 		this.postProcessing = null;
+		this.mouseDown = false;
+		this.timeScale = 1.0;
+		this.scaledElapsed = 0;
 	}
 
 	run() {
@@ -27,15 +30,36 @@ class Three {
 
 		this.#animate();
 		this.#addResizeListener();
+		this.#addMouseListeners();
 	}
 
 	#animate() {
 		const delta = this.clock.getDelta();
-		const elapsed = this.clock.elapsedTime;
 
-		this.scene.animate(delta, elapsed);
+		const targetScale = this.mouseDown ? 0.1 : 1.0;
+		this.timeScale += (targetScale - this.timeScale) * 0.2;
+
+		const scaledDelta = delta * this.timeScale;
+		this.scaledElapsed += scaledDelta;
+
+		this.scene.animate(scaledDelta, this.scaledElapsed, this.timeScale);
 		this.postProcessing.render();
 		requestAnimationFrame(() => this.#animate());
+	}
+
+	#addMouseListeners() {
+		window.addEventListener("mousedown", () => {
+			this.mouseDown = true;
+		});
+		window.addEventListener("mouseup", () => {
+			this.mouseDown = false;
+		});
+		window.addEventListener("touchstart", () => {
+			this.mouseDown = true;
+		});
+		window.addEventListener("touchend", () => {
+			this.mouseDown = false;
+		});
 	}
 
 	#addResizeListener() {

@@ -3,31 +3,10 @@ import { GPUComputationRenderer } from "three/addons/misc/GPUComputationRenderer
 import positionShader from "../shaders/position.frag.glsl";
 import particlesVertexShader from "../shaders/particles.vert.glsl";
 import particlesFragmentShader from "../shaders/particles.frag.glsl";
+import depthVertexShader from "../shaders/depth.vert.glsl";
+import depthFragmentShader from "../shaders/depth.frag.glsl";
 
-const SIZE = 256;
-
-// DirectionalLight shadow pass — customDepthMaterial.
-// PCFShadowMap uses native depth buffer, so only the vertex position matters.
-const depthVertexShader = /* glsl */ `
-uniform sampler2D texturePosition;
-uniform float pointSize;
-
-void main() {
-    vec4 positionInfo = texture2D( texturePosition, position.xy );
-    vec4 mvPosition = modelViewMatrix * vec4( positionInfo.xyz, 1.0 );
-
-    gl_PointSize = pointSize / length( mvPosition.xyz ) * smoothstep(0.0, 0.2, positionInfo.w);
-    gl_Position = projectionMatrix * mvPosition;
-}
-`;
-
-const depthFragmentShader = /* glsl */ `
-void main() {
-    vec2 coord = gl_PointCoord * 2.0 - 1.0;
-    if(dot(coord, coord) > 1.0) discard;
-    gl_FragColor = vec4( 1.0 );
-}
-`;
+const SIZE = 312;
 
 export default class ParticleSystem {
 	constructor(renderer) {
@@ -49,13 +28,17 @@ export default class ParticleSystem {
 		// Set uniforms for position compute shader
 		this.positionUniforms = this.positionVariable.material.uniforms;
 		this.positionUniforms.time = { value: 0.0 };
-		this.positionUniforms.speed = { value: 1.0 };
-		this.positionUniforms.dieSpeed = { value: 0.02 };
+		this.positionUniforms.speed = { value: 2.0 };
+		this.positionUniforms.dieSpeed = { value: 0.01 };
 		this.positionUniforms.radius = { value: 90.0 };
-		this.positionUniforms.curlSize = { value: 0.015 };
-		this.positionUniforms.attraction = { value: 1.5 };
+		this.positionUniforms.curlSize = { value: 0.0175 };
+		this.positionUniforms.attraction = { value: 3.5 };
 		this.positionUniforms.initAnimation = { value: 0.0 };
-		this.positionUniforms.mouse3d = { value: new THREE.Vector3() };
+		this.positionUniforms.textureMeshPositions = { value: null };
+		this.positionUniforms.textureMeshVelocities = { value: null };
+		this.positionUniforms.meshSampleSize = { value: 64.0 };
+		this.positionUniforms.timeScale = { value: 1.0 };
+		this.positionUniforms.wind = { value: new THREE.Vector3(-3, 0.0, 0.0) };
 		this.positionUniforms.textureDefaultPosition = {
 			value: defaultPositionTexture,
 		};
@@ -105,7 +88,7 @@ export default class ParticleSystem {
 		geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
 		// Shared uniform so one value controls both render + depth shaders
-		this.pointSizeUniform = { value: 6000.0 };
+		this.pointSizeUniform = { value: 9000.0 };
 
 		const material = new THREE.ShaderMaterial({
 			uniforms: THREE.UniformsUtils.merge([
@@ -121,7 +104,6 @@ export default class ParticleSystem {
 			lights: true,
 			transparent: true,
 			depthWrite: false,
-			blending: THREE.NoBlending,
 		});
 
 		this.particleMaterial = material;
@@ -147,14 +129,23 @@ export default class ParticleSystem {
 		return mesh;
 	}
 
-	update(delta, elapsed, mouse3d, camera, lightPosition) {
+	update(delta, elapsed, timeScale, meshSampler, camera, lightPosition) {
 		// Animate init
 		this.positionUniforms.initAnimation.value = Math.min(
 			1.0,
 			this.positionUniforms.initAnimation.value + delta * 0.5,
 		);
 		this.positionUniforms.time.value = elapsed;
-		this.positionUniforms.mouse3d.value.copy(mouse3d);
+		this.positionUniforms.timeScale.value = timeScale;
+
+		// Set mesh surface textures from sampler
+		if (meshSampler) {
+			this.positionUniforms.textureMeshPositions.value =
+				meshSampler.positionTexture;
+			this.positionUniforms.textureMeshVelocities.value =
+				meshSampler.velocityTexture;
+			this.positionUniforms.meshSampleSize.value = meshSampler.size;
+		}
 
 		this.gpuCompute.compute();
 

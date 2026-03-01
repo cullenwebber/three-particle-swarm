@@ -42,10 +42,13 @@ void main() {
     vec3 litColor = baseColor * (0.7 + 0.3 * diffuse) + vec3(0.1) * specular;
 
     float shadow = getShadowMask();
-    // Shadow tints toward a dark cool tone instead of just dimming
     vec3 shadowColor = mix(baseColor, vec3(0.,0.,0.01) , 0.8);
-    vec3 outgoingLight = mix(shadowColor, litColor, mix(0.0, 1.0, shadow));
+    vec3 outgoingLight = mix(shadowColor, litColor, shadow);
 
-    gl_FragColor = vec4( outgoingLight, 1.0 );
+    // Fade applied last so it affects both lit and shadow paths
+    float fade = smoothstep(0.0, 0.7, vLife);
+    
+
+    gl_FragColor = vec4( outgoingLight, fade );
 
 }

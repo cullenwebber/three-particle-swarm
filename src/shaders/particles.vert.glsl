@@ -5,6 +5,7 @@ uniform float pointSize;
 
 varying float vLife;
 varying float vColorIndex;
+varying vec3 vViewPosition;
 
 void main() {
 
@@ -20,8 +21,12 @@ void main() {
 
     vLife = positionInfo.w;
     vColorIndex = fract(position.x * 431.0 + position.y * 7697.0);
-    gl_PointSize = pointSize / length( mvPosition.xyz ) * smoothstep(0.0, 0.2, positionInfo.w);
 
+    // Random size per particle (0.4 – 1.0 range)
+    float sizeRand = 0.1 + 0.6 * fract(sin(dot(position.xy, vec2(53.127, 97.863))) * 43758.5453);
+    gl_PointSize = pointSize * sizeRand / length( mvPosition.xyz ) * smoothstep(0.0, 0.2, positionInfo.w);
+
+    vViewPosition = -mvPosition.xyz;
     gl_Position = projectionMatrix * mvPosition;
 
 }

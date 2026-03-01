@@ -1,22 +1,20 @@
 import * as THREE from "three";
 import WebGLContext from "../core/WebGLContext";
-import { CameraRig } from "../utils/CameraRig";
 import ParticleSystem from "../particles/ParticleSystem";
+import CharacterLoader from "../character/CharacterLoader";
+import MeshSurfaceSampler from "../character/MeshSurfaceSampler";
 
 export default class Scene {
 	constructor() {
 		this.context = null;
 		this.camera = null;
-		this.cameraRig = null;
 		this.width = 0;
 		this.height = 0;
 		this.aspectRatio = 0;
 		this.scene = null;
 		this.particleSystem = null;
-		this.mouse3d = new THREE.Vector3();
-		this.raycaster = new THREE.Raycaster();
-		this.mouseNDC = new THREE.Vector2();
-		this.intersectPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+		this.character = null;
+		this.meshSampler = null;
 		this.#init();
 	}
 
@@ -26,7 +24,7 @@ export default class Scene {
 		this.#setupCamera();
 		this.#setupLight();
 		this.#setupParticles();
-		this.#bindMouseEvents();
+		this.#loadCharacter();
 	}
 
 	#setContext() {
@@ -46,7 +44,7 @@ export default class Scene {
 
 	#setupLight() {
 		const pointLight = new THREE.PointLight(0xffffff, 1, 1400);
-		pointLight.position.set(0, 10, 700);
+		pointLight.position.set(0, -100, 800);
 		pointLight.castShadow = true;
 		pointLight.shadowCameraNear = 10;
 		pointLight.shadowCameraFar = 1400;
@@ -63,16 +61,29 @@ export default class Scene {
 		this.scene.add(this.particleSystem.mesh);
 	}
 
-	#bindMouseEvents() {
-		window.addEventListener("mousemove", (event) => {
-			this.mouseNDC.x = (event.clientX / window.innerWidth) * 2 - 1;
-			this.mouseNDC.y = -(event.clientY / window.innerHeight) * 2 + 1;
-		});
+	async #loadCharacter() {
+		try {
+			this.character = new CharacterLoader();
+			await this.character.load("models/running.fbx");
+
+			// Center the character in camera view
+			this.character.group.position.y = -100;
+			this.character.group.rotation.y = Math.PI / 6;
+			this.scene.add(this.character.group);
+			this.meshSampler = new MeshSurfaceSampler(this.character.skinnedMesh);
+			this.#hideLoader();
+		} catch (err) {
+			console.error("Failed to load character FBX:", err);
+			this.#hideLoader();
+		}
 	}
 
-	#updateMouse3d() {
-		this.raycaster.setFromCamera(this.mouseNDC, this.camera);
-		this.raycaster.ray.intersectPlane(this.intersectPlane, this.mouse3d);
+	#hideLoader() {
+		const loader = document.getElementById("loader");
+		if (loader) {
+			loader.style.opacity = "0";
+			loader.addEventListener("transitionend", () => loader.remove());
+		}
 	}
 
 	#calculateAspectRatio() {
@@ -82,16 +93,24 @@ export default class Scene {
 		this.aspectRatio = this.width / this.height;
 	}
 
-	animate(delta, elapsed) {
-		this.#updateMouse3d();
-		this.particleSystem &&
+	animate(delta, elapsed, timeScale) {
+		// Update order matters: mixer → sampler → particles
+		if (this.character) {
+			this.character.update(delta);
+		}
+		if (this.meshSampler) {
+			this.meshSampler.update();
+		}
+		if (this.particleSystem) {
 			this.particleSystem.update(
 				delta,
 				elapsed,
-				this.mouse3d,
+				timeScale,
+				this.meshSampler,
 				this.camera,
 				this.light.position,
 			);
+		}
 	}
 
 	onResize(width, height) {
