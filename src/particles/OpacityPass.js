@@ -25,10 +25,10 @@ export default class OpacityPass {
 			OPACITY_MAP_SIZE,
 			OPACITY_MAP_SIZE,
 			{
-				minFilter: THREE.LinearFilter,
-				magFilter: THREE.LinearFilter,
+				minFilter: THREE.NearestFilter,
+				magFilter: THREE.NearestFilter,
 				format: THREE.RGBAFormat,
-				type: THREE.FloatType,
+				type: THREE.HalfFloatType,
 			},
 		);
 
@@ -40,6 +40,7 @@ export default class OpacityPass {
 			uniforms: {
 				texturePosition: { value: null },
 				textureSortKey: { value: null },
+				useSortKey: { value: 1.0 },
 				sortResolution: { value: new THREE.Vector2(size, size) },
 				lightViewMatrix: { value: this.lightCamera.matrixWorldInverse.clone() },
 				lightProjectionMatrix: {
@@ -66,13 +67,14 @@ export default class OpacityPass {
 		this.scene.add(this.mesh);
 	}
 
-	update(positionTexture, sortTexture, lightPosition) {
+	update(positionTexture, sortTexture, lightPosition, sortEnabled = true) {
 		this.lightCamera.position.copy(lightPosition);
 		this.lightCamera.lookAt(0, 0, 0);
 		this.lightCamera.updateMatrixWorld();
 
 		this.material.uniforms.texturePosition.value = positionTexture;
 		this.material.uniforms.textureSortKey.value = sortTexture;
+		this.material.uniforms.useSortKey.value = sortEnabled ? 1.0 : 0.0;
 		this.material.uniforms.lightViewMatrix.value.copy(
 			this.lightCamera.matrixWorldInverse,
 		);

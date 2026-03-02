@@ -92,6 +92,7 @@ export default class ParticleSystem {
 				texturePosition: { value: null },
 				textureSortKey: { value: null },
 				opacityTexture: { value: null },
+				useSortKey: { value: 1.0 },
 				pointSize: this.pointSizeUniform,
 				sortResolution: { value: new THREE.Vector2(SIZE, SIZE) },
 				lightDirection: { value: new THREE.Vector3(0.5, 0.8, 1.0) },
@@ -137,11 +138,13 @@ export default class ParticleSystem {
 
 		this.particleSort.update(positionTexture, camera, lightPosition);
 		const sortTexture = this.particleSort.getSortTexture();
+		const sortEnabled = this.particleSort.enabled;
 
-		this.opacityPass.update(positionTexture, sortTexture, lightPosition);
+		this.opacityPass.update(positionTexture, sortTexture, lightPosition, sortEnabled);
 
 		this.particleMaterial.uniforms.texturePosition.value = positionTexture;
 		this.particleMaterial.uniforms.textureSortKey.value = sortTexture;
+		this.particleMaterial.uniforms.useSortKey.value = sortEnabled ? 1.0 : 0.0;
 		this.particleMaterial.uniforms.opacityTexture.value =
 			this.opacityPass.getOpacityTexture();
 

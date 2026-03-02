@@ -9,6 +9,7 @@ export default class ParticleSort {
 	constructor(renderer, size) {
 		this.renderer = renderer;
 		this.size = size;
+		this.enabled = true;
 
 		this.sortN = 1;
 		while (this.sortN < size * size) this.sortN *= 2;
@@ -50,7 +51,11 @@ export default class ParticleSort {
 		this.gpuCompute.setVariableDependencies(this.sortKeyVariable, [this.sortKeyVariable]);
 
 		const error = this.gpuCompute.init();
-		if (error !== null) console.error("ParticleSort init error:", error);
+		if (error !== null) {
+			console.warn("ParticleSort not supported, disabling:", error);
+			this.enabled = false;
+			return;
+		}
 
 		this.sortPassThrough = this.gpuCompute.createShaderMaterial(bitonicSortShader, {
 			u_pass: { value: 0 },
@@ -81,6 +86,8 @@ export default class ParticleSort {
 	}
 
 	update(positionTexture, camera, lightPosition) {
+		if (!this.enabled) return;
+
 		this.computeHalfVector(camera, lightPosition);
 
 		this.sortKeyUniforms.texturePosition.value = positionTexture;
@@ -122,6 +129,7 @@ export default class ParticleSort {
 	}
 
 	getSortTexture() {
+		if (!this.enabled) return null;
 		return this.gpuCompute.getCurrentRenderTarget(this.sortKeyVariable).texture;
 	}
 }

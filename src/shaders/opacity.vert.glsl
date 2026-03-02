@@ -2,6 +2,7 @@ precision highp float;
 
 uniform sampler2D texturePosition;
 uniform sampler2D textureSortKey;
+uniform float useSortKey;
 uniform vec2 sortResolution;
 uniform mat4 lightViewMatrix;
 uniform mat4 lightProjectionMatrix;
@@ -11,13 +12,16 @@ uniform float opacityPointScale;
 varying float vLife;
 
 void main() {
-    vec4 sortData = texture2D(textureSortKey, position.xy);
-    float originalIndex = sortData.g;
+    vec2 posUV = position.xy;
 
-    vec2 posUV = vec2(
-        (mod(originalIndex, sortResolution.x) + 0.5) / sortResolution.x,
-        (floor(originalIndex / sortResolution.x) + 0.5) / sortResolution.y
-    );
+    if (useSortKey > 0.5) {
+        vec4 sortData = texture2D(textureSortKey, position.xy);
+        float originalIndex = sortData.g;
+        posUV = vec2(
+            (mod(originalIndex, sortResolution.x) + 0.5) / sortResolution.x,
+            (floor(originalIndex / sortResolution.x) + 0.5) / sortResolution.y
+        );
+    }
 
     vec4 positionInfo = texture2D(texturePosition, posUV);
     vLife = positionInfo.w;
