@@ -2,9 +2,7 @@ import * as THREE from "three";
 
 class WebGLContext {
 	constructor(container) {
-		if (!!WebGLContext.instance) {
-			return WebGLContext.instance;
-		}
+		if (WebGLContext.instance) return WebGLContext.instance;
 
 		this.container = container;
 		this.renderer = null;
@@ -21,35 +19,23 @@ class WebGLContext {
 	}
 
 	#setUpRenderer() {
-		this.renderer = new THREE.WebGLRenderer({
-			canvas: this.canvas,
-			antialias: false,
-		});
-
+		this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false });
 		this.fullScreenDimensions = this.getFullScreenDimensions();
-
-		this.renderer.setSize(
-			this.fullScreenDimensions.width,
-			this.fullScreenDimensions.height,
-		);
+		this.renderer.setSize(this.fullScreenDimensions.width, this.fullScreenDimensions.height);
 		this.renderer.setPixelRatio(this.pixelRatio);
-
 		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 	}
 
 	getFullScreenDimensions() {
-		const tempElement = document.createElement("div");
-		tempElement.style.height = "100lvh";
-		tempElement.style.width = "100lvw";
-		tempElement.style.position = "absolute";
-		tempElement.style.visibility = "hidden";
-		document.body.appendChild(tempElement);
-
-		const width = tempElement.offsetWidth;
-		const height = tempElement.offsetHeight;
-
-		document.body.removeChild(tempElement);
-
+		const el = document.createElement("div");
+		el.style.height = "100lvh";
+		el.style.width = "100lvw";
+		el.style.position = "absolute";
+		el.style.visibility = "hidden";
+		document.body.appendChild(el);
+		const width = el.offsetWidth;
+		const height = el.offsetHeight;
+		document.body.removeChild(el);
 		return { width, height };
 	}
 
@@ -60,9 +46,7 @@ class WebGLContext {
 		this.canvas.style.top = 0;
 		this.canvas.style.zIndex = 35;
 		this.canvas.style.pointerEvents = "auto";
-
 		document.body.appendChild(this.canvas);
-
 		return this.canvas;
 	}
 

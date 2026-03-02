@@ -4,12 +4,9 @@ uniform int u_stage;
 
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
-
-    // Compute 1D index from fragment position
     float index1D = floor(gl_FragCoord.y) * resolution.x + floor(gl_FragCoord.x);
     int selfIndex = int(index1D);
 
-    // Compute partner index via XOR with (1 << u_pass)
     int blockSize = 1;
     for (int i = 0; i < 20; i++) {
         if (i >= u_pass) break;
@@ -17,19 +14,15 @@ void main() {
     }
     int partnerIndex = selfIndex ^ blockSize;
 
-    // Convert partner index to UV
     vec2 partnerCoord = vec2(
         mod(float(partnerIndex), resolution.x),
         floor(float(partnerIndex) / resolution.x)
     );
     vec2 partnerUV = (partnerCoord + 0.5) / resolution;
 
-    // Fetch self and partner sort keys
     vec4 selfKey = texture2D(textureSortKey, uv);
     vec4 partnerKey = texture2D(textureSortKey, partnerUV);
 
-    // Determine sort direction from stage bits
-    // Ascending if the relevant bit of selfIndex (from the stage) is 0
     int dirBlockSize = 1;
     for (int i = 0; i < 20; i++) {
         if (i >= u_stage + 1) break;
@@ -37,7 +30,6 @@ void main() {
     }
     bool ascending = ((selfIndex / dirBlockSize) & 1) == 0;
 
-    // Compare-and-swap based on projected distance (R channel)
     bool isSmaller = selfKey.r < partnerKey.r;
     bool swap;
     if (selfIndex < partnerIndex) {

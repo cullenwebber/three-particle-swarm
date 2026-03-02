@@ -45,7 +45,6 @@ export default class Scene {
 	#setupLight() {
 		const pointLight = new THREE.PointLight(0xffffff, 1, 10);
 		pointLight.position.set(0, -200, 3000);
-
 		this.scene.add(pointLight);
 		this.light = pointLight;
 	}
@@ -59,8 +58,6 @@ export default class Scene {
 		try {
 			this.character = new CharacterLoader();
 			await this.character.load("models/running.fbx");
-
-			// Center the character in camera view
 			this.character.group.position.y = -100;
 			this.character.group.rotation.y = Math.PI / 5;
 			this.scene.add(this.character.group);
@@ -88,21 +85,11 @@ export default class Scene {
 	}
 
 	animate(delta, elapsed, timeScale) {
-		// Update order matters: mixer → sampler → particles
-		if (this.character) {
-			this.character.update(delta);
-		}
-		if (this.meshSampler) {
-			this.meshSampler.update();
-		}
+		if (this.character) this.character.update(delta);
+		if (this.meshSampler) this.meshSampler.update();
 		if (this.particleSystem) {
 			this.particleSystem.update(
-				delta,
-				elapsed,
-				timeScale,
-				this.meshSampler,
-				this.camera,
-				this.light.position,
+				delta, elapsed, timeScale, this.meshSampler, this.camera, this.light.position,
 			);
 		}
 	}
@@ -111,7 +98,6 @@ export default class Scene {
 		this.width = width;
 		this.height = height;
 		this.aspectRatio = width / height;
-
 		this.camera.aspect = this.aspectRatio;
 		this.camera.updateProjectionMatrix();
 	}
