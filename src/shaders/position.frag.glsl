@@ -47,12 +47,6 @@ void main() {
         vec3 delta = followPosition - position;
         position += delta * (0.005 + life * 0.015) * attraction * (1.0 - smoothstep(50.0, 350.0, length(delta))) * speed * timeScale;
 
-        // Bone velocity — smooth inertia trail
-        // Life-scaled: fresh particles get full kick, dying ones coast
-        vec3 boneVel = meshVel.xyz;
-        float boneSpeed = length(boneVel);
-        position -= boneVel * 0.04 * life * timeScale;
-
 
         float drift = 1.0 - life;
         vec3 curlNoise = curl(position * curlSize, time, 0.1);
