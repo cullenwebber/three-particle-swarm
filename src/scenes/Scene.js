@@ -15,6 +15,16 @@ export default class Scene {
 		this.particleSystem = null;
 		this.character = null;
 		this.meshSampler = null;
+
+		this.orbitTarget = new THREE.Vector3(0, 0, 0);
+		this.orbitRadius = 300;
+		this.orbitAngle = { x: 0, y: 0 };
+		this.orbitAngleTarget = { x: 0, y: 0 };
+		this.defaultOrbitAngle = { x: 0, y: 0 };
+		this.isDragging = false;
+		this.dragStart = { x: 0, y: 0 };
+		this.dragAngleStart = { x: 0, y: 0 };
+
 		this.#init();
 	}
 
@@ -24,6 +34,7 @@ export default class Scene {
 		this.#setupCamera();
 		this.#setupLight();
 		this.#setupParticles();
+		this.#setupOrbitControls();
 		this.#loadCharacter();
 	}
 
@@ -39,7 +50,7 @@ export default class Scene {
 	#setupCamera() {
 		this.#calculateAspectRatio();
 		this.camera = new THREE.PerspectiveCamera(50, this.aspectRatio, 0.1, 1000);
-		this.camera.position.z = 300;
+		this.camera.position.z = this.orbitRadius;
 	}
 
 	#setupLight() {
@@ -52,6 +63,56 @@ export default class Scene {
 	#setupParticles() {
 		this.particleSystem = new ParticleSystem(this.context.renderer);
 		this.scene.add(this.particleSystem.mesh);
+	}
+
+	#setupOrbitControls() {
+		const onDown = (x, y) => {
+			this.isDragging = true;
+			this.dragStart.x = x;
+			this.dragStart.y = y;
+			this.dragAngleStart.x = this.orbitAngleTarget.x;
+			this.dragAngleStart.y = this.orbitAngleTarget.y;
+		};
+
+		const onMove = (x, y) => {
+			if (!this.isDragging) return;
+			const dx = (x - this.dragStart.x) / this.width;
+			this.orbitAngleTarget.x = this.dragAngleStart.x + dx * Math.PI * 2;
+		};
+
+		const onUp = () => {
+			this.isDragging = false;
+		};
+
+		window.addEventListener("mousedown", (e) => onDown(e.clientX, e.clientY));
+		window.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
+		window.addEventListener("mouseup", onUp);
+
+		window.addEventListener("touchstart", (e) => {
+			const t = e.touches[0];
+			onDown(t.clientX, t.clientY);
+		});
+		window.addEventListener("touchmove", (e) => {
+			const t = e.touches[0];
+			onMove(t.clientX, t.clientY);
+		});
+		window.addEventListener("touchend", onUp);
+	}
+
+	#updateCamera() {
+		if (!this.isDragging) {
+			this.orbitAngleTarget.x +=
+				(this.defaultOrbitAngle.x - this.orbitAngleTarget.x) * 0.05;
+		}
+
+		this.orbitAngle.x += (this.orbitAngleTarget.x - this.orbitAngle.x) * 0.1;
+
+		this.camera.position.x =
+			this.orbitTarget.x + this.orbitRadius * Math.sin(this.orbitAngle.x);
+		this.camera.position.y = this.orbitTarget.y;
+		this.camera.position.z =
+			this.orbitTarget.z + this.orbitRadius * Math.cos(this.orbitAngle.x);
+		this.camera.lookAt(this.orbitTarget);
 	}
 
 	async #loadCharacter() {
@@ -85,11 +146,17 @@ export default class Scene {
 	}
 
 	animate(delta, elapsed, timeScale) {
+		this.#updateCamera();
 		if (this.character) this.character.update(delta);
 		if (this.meshSampler) this.meshSampler.update();
 		if (this.particleSystem) {
 			this.particleSystem.update(
-				delta, elapsed, timeScale, this.meshSampler, this.camera, this.light.position,
+				delta,
+				elapsed,
+				timeScale,
+				this.meshSampler,
+				this.camera,
+				this.light.position,
 			);
 		}
 	}

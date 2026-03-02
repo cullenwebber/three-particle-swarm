@@ -35,7 +35,7 @@ export default class ParticleSystem {
 		this.positionUniforms.textureMeshPositions = { value: null };
 		this.positionUniforms.textureMeshVelocities = { value: null };
 		this.positionUniforms.meshSampleSize = { value: 64.0 };
-		this.positionUniforms.timeScale = { value: 1.0 };
+		this.positionUniforms.dt = { value: 0.016 };
 		this.positionUniforms.wind = { value: new THREE.Vector3(-4, 0.0, -1.0) };
 		this.positionUniforms.textureDefaultPosition = { value: defaultPositionTexture };
 
@@ -109,7 +109,7 @@ export default class ParticleSystem {
 			this.positionUniforms.initAnimation.value + delta * 0.5,
 		);
 		this.positionUniforms.time.value = elapsed;
-		this.positionUniforms.timeScale.value = timeScale;
+		this.positionUniforms.dt.value = delta * 60.0;
 
 		if (meshSampler) {
 			this.positionUniforms.textureMeshPositions.value = meshSampler.positionTexture;
