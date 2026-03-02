@@ -43,14 +43,8 @@ export default class Scene {
 	}
 
 	#setupLight() {
-		const pointLight = new THREE.PointLight(0xffffff, 1, 1400);
-		pointLight.position.set(0, -100, 800);
-		pointLight.castShadow = true;
-		pointLight.shadowCameraNear = 10;
-		pointLight.shadowCameraFar = 1400;
-		pointLight.shadowBias = 0.1;
-		pointLight.shadowMapWidth = 2048;
-		pointLight.shadowMapHeight = 2048;
+		const pointLight = new THREE.PointLight(0xffffff, 1, 10);
+		pointLight.position.set(0, -200, 3000);
 
 		this.scene.add(pointLight);
 		this.light = pointLight;
@@ -68,7 +62,7 @@ export default class Scene {
 
 			// Center the character in camera view
 			this.character.group.position.y = -100;
-			this.character.group.rotation.y = Math.PI / 6;
+			this.character.group.rotation.y = Math.PI / 5;
 			this.scene.add(this.character.group);
 			this.meshSampler = new MeshSurfaceSampler(this.character.skinnedMesh);
 			this.#hideLoader();

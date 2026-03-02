@@ -1,21 +1,20 @@
 #include <common>
-#include <packing>
-#include <lights_pars_begin>
-#include <shadowmap_pars_fragment>
-#include <shadowmask_pars_fragment>
 
 varying float vLife;
 varying float vColorIndex;
 uniform vec3 lightDirection;
+uniform sampler2D opacityTexture;
+uniform float shadowDensity;
+
+varying vec4 vLightSpacePos;
 
 void main() {
-
-    // Circular point sprite
+    // Circular point sprite - discard outside unit circle
     vec2 coord = gl_PointCoord * 2.0 - 1.0;
     float r2 = dot(coord, coord);
-    if(r2 > 1.0) discard;
+    if (r2 > 1.0) discard;
 
-    // Reconstruct sphere normal
+    // Reconstruct sphere normal from point coord
     vec3 normal = vec3(coord, sqrt(1.0 - r2));
 
     vec3 lightDir = normalize(lightDirection);
@@ -41,14 +40,19 @@ void main() {
     // Stronger lit/shadow contrast
     vec3 litColor = baseColor * (0.7 + 0.3 * diffuse) + vec3(0.1) * specular;
 
-    float shadow = getShadowMask();
-    vec3 shadowColor = mix(baseColor, vec3(0.,0.,0.01) , 0.8);
+    // Sample opacity texture for self-shadowing
+    vec2 lightUV = vLightSpacePos.xy / vLightSpacePos.w * 0.5 + 0.5;
+    float opacity = 0.0;
+    if (lightUV.x >= 0.0 && lightUV.x <= 1.0 && lightUV.y >= 0.0 && lightUV.y <= 1.0) {
+        opacity = texture2D(opacityTexture, lightUV).r;
+    }
+
+    // Exponential shadow falloff
+    float shadow = exp(-opacity * shadowDensity);
+
+    vec3 shadowColor = mix(baseColor, vec3(0., 0., 0.01), 0.99);
     vec3 outgoingLight = mix(shadowColor, litColor, shadow);
 
-    // Fade applied last so it affects both lit and shadow paths
-    float fade = smoothstep(0.0, 0.7, vLife);
-    
 
-    gl_FragColor = vec4( outgoingLight, fade );
-
+    gl_FragColor = vec4(outgoingLight, 1.0);
 }

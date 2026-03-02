@@ -34,8 +34,6 @@ class WebGLContext {
 		);
 		this.renderer.setPixelRatio(this.pixelRatio);
 
-		this.renderer.shadowMap.enabled = true;
-		this.renderer.shadowMap.type = THREE.PCFShadowMap;
 		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 	}
 

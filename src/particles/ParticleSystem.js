@@ -3,13 +3,14 @@ import { GPUComputationRenderer } from "three/addons/misc/GPUComputationRenderer
 import positionShader from "../shaders/position.frag.glsl";
 import particlesVertexShader from "../shaders/particles.vert.glsl";
 import particlesFragmentShader from "../shaders/particles.frag.glsl";
-import depthVertexShader from "../shaders/depth.vert.glsl";
-import depthFragmentShader from "../shaders/depth.frag.glsl";
+import ParticleSort from "./ParticleSort.js";
+import OpacityPass from "./OpacityPass.js";
 
-const SIZE = 312;
+const SIZE = 512;
 
 export default class ParticleSystem {
 	constructor(renderer) {
+		this.renderer = renderer;
 		this.gpuCompute = new GPUComputationRenderer(SIZE, SIZE, renderer);
 
 		// Create default position texture (random sphere distribution)
@@ -38,7 +39,7 @@ export default class ParticleSystem {
 		this.positionUniforms.textureMeshVelocities = { value: null };
 		this.positionUniforms.meshSampleSize = { value: 64.0 };
 		this.positionUniforms.timeScale = { value: 1.0 };
-		this.positionUniforms.wind = { value: new THREE.Vector3(-3, 0.0, 0.0) };
+		this.positionUniforms.wind = { value: new THREE.Vector3(-4, 0.0, -1.0) };
 		this.positionUniforms.textureDefaultPosition = {
 			value: defaultPositionTexture,
 		};
@@ -54,6 +55,15 @@ export default class ParticleSystem {
 
 		// Create particle mesh
 		this.mesh = this.createParticleMesh();
+
+		// Initialize sort and opacity systems
+		this.particleSort = new ParticleSort(renderer, SIZE);
+		this.opacityPass = new OpacityPass(
+			renderer,
+			this.mesh.geometry,
+			SIZE,
+			this.pointSizeUniform,
+		);
 	}
 
 	fillPositionTexture(texture) {
@@ -87,44 +97,32 @@ export default class ParticleSystem {
 
 		geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
-		// Shared uniform so one value controls both render + depth shaders
-		this.pointSizeUniform = { value: 9000.0 };
+		// Shared uniform so one value controls both render + opacity shaders
+		this.pointSizeUniform = { value: 10000.0 };
 
 		const material = new THREE.ShaderMaterial({
-			uniforms: THREE.UniformsUtils.merge([
-				THREE.UniformsLib.lights,
-				{
-					texturePosition: { value: null },
-					pointSize: this.pointSizeUniform,
-					lightDirection: { value: new THREE.Vector3(0.5, 0.8, 1.0) },
-				},
-			]),
+			uniforms: {
+				texturePosition: { value: null },
+				textureSortKey: { value: null },
+				opacityTexture: { value: null },
+				pointSize: this.pointSizeUniform,
+				sortResolution: { value: new THREE.Vector2(SIZE, SIZE) },
+				lightDirection: { value: new THREE.Vector3(0.5, 0.8, 1.0) },
+				lightViewMatrix: { value: new THREE.Matrix4() },
+				lightProjectionMatrix: { value: new THREE.Matrix4() },
+				shadowDensity: { value: 0.5 },
+			},
 			vertexShader: particlesVertexShader,
 			fragmentShader: particlesFragmentShader,
-			lights: true,
-			transparent: true,
+			transparent: false,
+			blending: THREE.NoBlending,
 			depthWrite: false,
 		});
 
 		this.particleMaterial = material;
 
-		// customDepthMaterial for DirectionalLight shadow pass
-		const depthMaterial = new THREE.ShaderMaterial({
-			uniforms: {
-				texturePosition: { value: null },
-				pointSize: this.pointSizeUniform,
-			},
-			vertexShader: depthVertexShader,
-			fragmentShader: depthFragmentShader,
-		});
-
-		this.depthMaterial = depthMaterial;
-
 		const mesh = new THREE.Points(geometry, material);
 		mesh.frustumCulled = false;
-		mesh.castShadow = true;
-		mesh.receiveShadow = true;
-		mesh.customDepthMaterial = depthMaterial;
 
 		return mesh;
 	}
@@ -147,22 +145,40 @@ export default class ParticleSystem {
 			this.positionUniforms.meshSampleSize.value = meshSampler.size;
 		}
 
+		// 1. Run simulation compute (updates positions)
 		this.gpuCompute.compute();
 
-		// Pass computed position texture to particle material and depth material
 		const positionTexture = this.gpuCompute.getCurrentRenderTarget(
 			this.positionVariable,
 		).texture;
+
+		// 2-3. Run sort key generation + bitonic sort passes
+		this.particleSort.update(positionTexture, camera, lightPosition);
+		const sortTexture = this.particleSort.getSortTexture();
+
+		// 4. Render opacity pass (particles into light-space RT)
+		this.opacityPass.update(positionTexture, sortTexture, lightPosition);
+
+		// 5. Pass textures to particle material
 		this.particleMaterial.uniforms.texturePosition.value = positionTexture;
-		this.depthMaterial.uniforms.texturePosition.value = positionTexture;
-		this.depthMaterial.uniformsNeedUpdate = true;
+		this.particleMaterial.uniforms.textureSortKey.value = sortTexture;
+		this.particleMaterial.uniforms.opacityTexture.value =
+			this.opacityPass.getOpacityTexture();
+
+		// Update light camera matrices for particle shader
+		const lightCamera = this.opacityPass.getLightCamera();
+		this.particleMaterial.uniforms.lightViewMatrix.value.copy(
+			lightCamera.matrixWorldInverse,
+		);
+		this.particleMaterial.uniforms.lightProjectionMatrix.value.copy(
+			lightCamera.projectionMatrix,
+		);
 
 		// Update light direction in view space for per-particle sphere shading
 		if (lightPosition && camera) {
-			const lightDir = lightPosition
-				.clone()
-				.applyMatrix4(camera.matrixWorldInverse)
-				.normalize();
+			// Direction from scene center toward light, in view space
+			const lightWorld = lightPosition.clone().normalize();
+			const lightDir = lightWorld.transformDirection(camera.matrixWorldInverse);
 			this.particleMaterial.uniforms.lightDirection.value.copy(lightDir);
 		}
 	}

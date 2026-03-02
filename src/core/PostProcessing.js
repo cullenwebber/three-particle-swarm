@@ -17,7 +17,7 @@ export default class PostProcessing {
 			new THREE.Vector2(width, height),
 			0.4, // strength
 			0.2, // radius
-			0.4, // threshold
+			0.3, // threshold
 		);
 		this.composer.addPass(this.bloomPass);
 
