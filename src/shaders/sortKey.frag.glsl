@@ -1,3 +1,6 @@
+precision highp float;
+precision highp int;
+
 uniform sampler2D texturePosition;
 uniform vec3 halfVector;
 

@@ -1,3 +1,5 @@
+precision highp float;
+
 #include <common>
 
 varying float vLife;

@@ -6,7 +6,7 @@ import particlesFragmentShader from "../shaders/particles.frag.glsl";
 import ParticleSort from "./ParticleSort.js";
 import OpacityPass from "./OpacityPass.js";
 
-const SIZE = 512;
+const SIZE = 256;
 
 export default class ParticleSystem {
 	constructor(renderer) {
@@ -37,16 +37,26 @@ export default class ParticleSystem {
 		this.positionUniforms.meshSampleSize = { value: 64.0 };
 		this.positionUniforms.dt = { value: 0.016 };
 		this.positionUniforms.wind = { value: new THREE.Vector3(-4, 0.0, -1.0) };
-		this.positionUniforms.textureDefaultPosition = { value: defaultPositionTexture };
+		this.positionUniforms.textureDefaultPosition = {
+			value: defaultPositionTexture,
+		};
 
-		this.gpuCompute.setVariableDependencies(this.positionVariable, [this.positionVariable]);
+		this.gpuCompute.setVariableDependencies(this.positionVariable, [
+			this.positionVariable,
+		]);
 
 		const error = this.gpuCompute.init();
-		if (error !== null) console.error("GPUComputationRenderer init error:", error);
+		if (error !== null)
+			console.error("GPUComputationRenderer init error:", error);
 
 		this.mesh = this.createParticleMesh();
 		this.particleSort = new ParticleSort(renderer, SIZE);
-		this.opacityPass = new OpacityPass(renderer, this.mesh.geometry, SIZE, this.pointSizeUniform);
+		this.opacityPass = new OpacityPass(
+			renderer,
+			this.mesh.geometry,
+			SIZE,
+			this.pointSizeUniform,
+		);
 	}
 
 	fillPositionTexture(texture) {
@@ -87,7 +97,7 @@ export default class ParticleSystem {
 				lightDirection: { value: new THREE.Vector3(0.5, 0.8, 1.0) },
 				lightViewMatrix: { value: new THREE.Matrix4() },
 				lightProjectionMatrix: { value: new THREE.Matrix4() },
-				shadowDensity: { value: 0.5 },
+				shadowDensity: { value: 2.0 },
 			},
 			vertexShader: particlesVertexShader,
 			fragmentShader: particlesFragmentShader,
@@ -112,14 +122,18 @@ export default class ParticleSystem {
 		this.positionUniforms.dt.value = delta * 60.0;
 
 		if (meshSampler) {
-			this.positionUniforms.textureMeshPositions.value = meshSampler.positionTexture;
-			this.positionUniforms.textureMeshVelocities.value = meshSampler.velocityTexture;
+			this.positionUniforms.textureMeshPositions.value =
+				meshSampler.positionTexture;
+			this.positionUniforms.textureMeshVelocities.value =
+				meshSampler.velocityTexture;
 			this.positionUniforms.meshSampleSize.value = meshSampler.size;
 		}
 
 		this.gpuCompute.compute();
 
-		const positionTexture = this.gpuCompute.getCurrentRenderTarget(this.positionVariable).texture;
+		const positionTexture = this.gpuCompute.getCurrentRenderTarget(
+			this.positionVariable,
+		).texture;
 
 		this.particleSort.update(positionTexture, camera, lightPosition);
 		const sortTexture = this.particleSort.getSortTexture();
@@ -128,11 +142,16 @@ export default class ParticleSystem {
 
 		this.particleMaterial.uniforms.texturePosition.value = positionTexture;
 		this.particleMaterial.uniforms.textureSortKey.value = sortTexture;
-		this.particleMaterial.uniforms.opacityTexture.value = this.opacityPass.getOpacityTexture();
+		this.particleMaterial.uniforms.opacityTexture.value =
+			this.opacityPass.getOpacityTexture();
 
 		const lightCamera = this.opacityPass.getLightCamera();
-		this.particleMaterial.uniforms.lightViewMatrix.value.copy(lightCamera.matrixWorldInverse);
-		this.particleMaterial.uniforms.lightProjectionMatrix.value.copy(lightCamera.projectionMatrix);
+		this.particleMaterial.uniforms.lightViewMatrix.value.copy(
+			lightCamera.matrixWorldInverse,
+		);
+		this.particleMaterial.uniforms.lightProjectionMatrix.value.copy(
+			lightCamera.projectionMatrix,
+		);
 
 		if (lightPosition && camera) {
 			const lightWorld = lightPosition.clone().normalize();

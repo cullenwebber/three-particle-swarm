@@ -1,3 +1,6 @@
+precision highp float;
+precision highp int;
+
 uniform sampler2D textureSortKey;
 uniform int u_pass;
 uniform int u_stage;

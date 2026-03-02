@@ -1,3 +1,5 @@
+precision highp float;
+
 #include <common>
 uniform sampler2D texturePosition;
 uniform sampler2D textureSortKey;

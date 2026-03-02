@@ -1,3 +1,5 @@
+precision highp float;
+
 uniform sampler2D texturePosition;
 uniform sampler2D textureSortKey;
 uniform vec2 sortResolution;

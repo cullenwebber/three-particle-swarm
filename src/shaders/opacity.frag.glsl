@@ -1,3 +1,5 @@
+precision highp float;
+
 varying float vLife;
 
 void main() {
